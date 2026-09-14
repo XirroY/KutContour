@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kutcontour"
+version = "1.0.0"
+description = "Turn a DXF cut file and artwork into a print-ready PDF with a CutContour spot-colour cut line"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "ezdxf>=1.1",
+    "reportlab>=4.0",
+    "pikepdf>=8.0",
+    "pillow>=10.0",
+    "flask>=3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+kutcontour = "kutcontour.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kutcontour*"]
+
+[tool.setuptools.package-data]
+kutcontour = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

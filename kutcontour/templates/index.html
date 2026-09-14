@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KutContour</title>
+<style>
+  :root {
+    --bg: #f6f6f7; --panel: #fff; --ink: #1b1b1f; --muted: #6b6b76;
+    --line: #dedee4; --accent: #ec008c; --warn: #8a5a00; --warn-bg: #fff6e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#151518; --panel:#1e1e23; --ink:#ececf0; --muted:#9b9ba6;
+            --line:#33333c; --warn:#ffcf6b; --warn-bg:#3a2f14; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:24px 20px 8px; max-width:1100px; margin:0 auto; }
+  h1 { margin:0; font-size:22px; letter-spacing:-.01em; }
+  h1 span { color:var(--accent); }
+  header p { margin:6px 0 0; color:var(--muted); font-size:14px; }
+  main { max-width:1100px; margin:0 auto; padding:16px 20px 60px; display:grid;
+         grid-template-columns:minmax(0,1fr) minmax(0,420px); gap:20px; align-items:start; }
+  @media (max-width:860px) { main { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:36px 16px; text-align:center;
+          color:var(--muted); cursor:pointer; transition:.15s; }
+  .drop.over, .drop:hover { border-color:var(--accent); color:var(--ink); }
+  .drop strong { display:block; color:var(--ink); font-size:15px; margin-bottom:4px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:14px 0 4px; }
+  select, input[type=text], input[type=number] {
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); font:inherit; font-size:14px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .check { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:var(--ink); }
+  .check input { width:16px; height:16px; accent-color:var(--accent); }
+  button { margin-top:18px; width:100%; padding:11px; border:0; border-radius:8px;
+           background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:default; }
+  button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:500; }
+  #preview { width:100%; border:1px solid var(--line); border-radius:8px; background:#fff; display:none; }
+  .report { margin-top:14px; font-size:13px; border-collapse:collapse; width:100%; }
+  .report td { padding:3px 0; vertical-align:top; }
+  .report td:first-child { color:var(--muted); width:44%; }
+  .warn { margin-top:12px; background:var(--warn-bg); color:var(--warn); border-radius:8px;
+          padding:10px 12px; font-size:13px; }
+  .warn div + div { margin-top:5px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+  details summary { cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px; }
+  a.dl { display:block; margin-top:12px; text-align:center; padding:11px; border-radius:8px;
+         background:var(--ink); color:var(--bg); text-decoration:none; font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kut<span>Contour</span></h1>
+  <p>Artwork plus a reusable DXF cut file, out comes a PDF with a {{ defaults.spot_name }} spot-colour cut line set to overprint.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <form id="form">
+      <div class="drop" id="drop">
+        <strong id="dropTitle">Drop artwork here</strong>
+        <span id="dropHint">or click to choose a JPG, PNG or TIFF</span>
+        <input type="file" id="image" name="image" accept="image/*" hidden>
+      </div>
+
+      <label for="cutfile">Cut file</label>
+      <select id="cutfile" name="cutfile">
+        {% for f in cutfiles %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+        {% if not cutfiles %}<option value="">no DXF found in ./cutfiles</option>{% endif %}
+      </select>
+      <div class="hint" id="cutinfo"></div>
+
+      <div class="row">
+        <div>
+          <label for="image_fit">Artwork fit</label>
+          <select id="image_fit" name="image_fit">
+            <option value="cover">Cover (fill, crop overhang)</option>
+            <option value="contain">Contain (fit whole image)</option>
+            <option value="stretch">Stretch to page</option>
+          </select>
+        </div>
+        <div>
+          <label for="image_align">Keep</label>
+          <select id="image_align" name="image_align">
+            <option value="center">Centre</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+
+      <details>
+        <summary>Print settings</summary>
+        <div class="row">
+          <div><label for="page_w">Page width (mm)</label>
+            <input type="number" step="0.1" id="page_w" name="page_w" value="{{ defaults.page_w }}"></div>
+          <div><label for="page_h">Page height (mm)</label>
+            <input type="number" step="0.1" id="page_h" name="page_h" value="{{ defaults.page_h }}"></div>
+        </div>
+        <div class="row">
+          <div><label for="stroke">Cut line (pt)</label>
+            <input type="number" step="0.05" id="stroke" name="stroke" value="{{ defaults.stroke }}"></div>
+          <div><label for="spot_name">Spot colour name</label>
+            <input type="text" id="spot_name" name="spot_name" value="{{ defaults.spot_name }}"></div>
+        </div>
+        <label class="check"><input type="checkbox" name="overprint" checked> Set the cut line to overprint</label>
+        <label class="check"><input type="checkbox" name="fit_cut"> Scale the cut line down if it is too big</label>
+        <label class="check"><input type="checkbox" name="cmyk"> Convert artwork to CMYK (no ICC profile)</label>
+      </details>
+
+      <button type="submit" id="go">Make PDF</button>
+      <button type="button" class="ghost" id="tpl">Download design template</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <img id="preview" alt="preview of the finished page">
+    <div id="empty" class="hint">The preview appears here. Magenta is the cut line; it is not printed as ink.</div>
+    <div id="out"></div>
+  </section>
+</main>
+
+<script>
+const form = document.getElementById('form');
+const drop = document.getElementById('drop');
+const input = document.getElementById('image');
+const preview = document.getElementById('preview');
+const out = document.getElementById('out');
+const go = document.getElementById('go');
+
+drop.addEventListener('click', () => input.click());
+['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', ev => {
+  if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; showFile(); }
+});
+input.addEventListener('change', showFile);
+
+function showFile() {
+  const f = input.files[0];
+  document.getElementById('dropTitle').textContent = f ? f.name : 'Drop artwork here';
+  document.getElementById('dropHint').textContent = f
+    ? (f.size / 1048576).toFixed(1) + ' MB — click to replace'
+    : 'or click to choose a JPG, PNG or TIFF';
+}
+
+document.getElementById('tpl').addEventListener('click', () => {
+  const f = document.getElementById('cutfile').value;
+  if (f) window.location = '/template/' + encodeURIComponent(f);
+});
+
+fetch('/api/cutfiles').then(r => r.json()).then(list => {
+  const info = document.getElementById('cutinfo');
+  const sel = document.getElementById('cutfile');
+  const render = () => {
+    const m = list.find(c => c.name === sel.value);
+    info.textContent = !m ? '' : m.error
+      ? 'error: ' + m.error
+      : `${m.paths} path${m.paths === 1 ? '' : 's'}, ${m.width_mm} × ${m.height_mm} mm`;
+  };
+  sel.addEventListener('change', render); render();
+});
+
+form.addEventListener('submit', async ev => {
+  ev.preventDefault();
+  go.disabled = true; go.textContent = 'Working…'; out.innerHTML = '';
+  try {
+    const res = await fetch('/api/generate', { method: 'POST', body: new FormData(form) });
+    if (!res.ok) throw new Error((await res.text()).replace(/<[^>]+>/g, '').trim() || res.statusText);
+    const data = await res.json();
+    preview.src = data.preview_url + '?t=' + Date.now();
+    preview.style.display = 'block';
+    document.getElementById('empty').style.display = 'none';
+    const r = data.report;
+    out.innerHTML =
+      `<a class="dl" href="${data.pdf_url}">Download PDF</a>` +
+      '<table class="report">' +
+      row('Page', `${r.page_mm[0]} × ${r.page_mm[1]} mm`) +
+      row('Cut line', `${r.cut_size_mm[0]} × ${r.cut_size_mm[1]} mm, ${r.contours} path(s)`) +
+      row('Bleed', `${r.bleed_mm[0]} / ${r.bleed_mm[1]} mm`) +
+      row('Spot colour', `${r.spot_name}, ${r.stroke_pt} pt${r.overprint ? ', overprint' : ''}`) +
+      (r.artwork_dpi ? row('Artwork', `${r.artwork_dpi} dpi at final size`) : '') +
+      '</table>' +
+      (data.warnings.length
+        ? '<div class="warn">' + data.warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('') + '</div>'
+        : '');
+  } catch (err) {
+    out.innerHTML = `<div class="warn">${escapeHtml(err.message)}</div>`;
+  } finally {
+    go.disabled = false; go.textContent = 'Make PDF';
+  }
+});
+
+const row = (k, v) => `<tr><td>${k}</td><td>${escapeHtml(String(v))}</td></tr>`;
+const escapeHtml = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+</script>
+</body>
+</html>
