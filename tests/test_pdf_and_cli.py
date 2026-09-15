@@ -74,7 +74,19 @@ def test_report_and_warnings(tmp_path, sample_dxf, artwork):
     assert result.report["cut_size_mm"] == (260.0, 300.0)
     assert result.report["bleed_mm"] == (1.5, 1.5)
     assert result.report["closed_contours"] == 2
-    assert any("cropped away" in w for w in result.warnings)
+    assert result.report["artwork_mm"] == (263.0, 303.0)
+    assert any("outside the page" in w for w in result.warnings)
+
+
+def test_report_records_where_the_artwork_ended_up(tmp_path, sample_dxf, artwork):
+    result, _out = build(tmp_path, sample_dxf, artwork, image_scale=0.5, image_offset_y=20.0)
+    placed = result.image_placement
+    assert result.report["artwork_mm"] == (
+        round(placed.width_mm, 1),
+        round(placed.height_mm, 1),
+    )
+    assert placed.width_mm < 263.0
+    assert placed.y_mm > (303.0 - placed.height_mm) / 2
 
 
 def test_cut_line_only_pdf_says_so(tmp_path, sample_dxf):

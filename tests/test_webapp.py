@@ -103,3 +103,70 @@ def test_template_download(client):
 def test_missing_job_is_a_404(client):
     assert client.get("/preview/deadbeef").status_code == 404
     assert client.get("/download/deadbeef/x.pdf").status_code == 404
+
+
+def test_cutline_api_returns_polylines_for_the_browser(client):
+    res = client.post(
+        "/api/cutline", data={"cutfile": "sample.dxf"}, content_type="multipart/form-data"
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["page_mm"] == [263.0, 303.0]
+    assert body["cut_mm"] == [260.0, 300.0]
+    assert len(body["paths"]) == 2
+    xs = [x for path in body["paths"] for x, _y in path]
+    ys = [y for path in body["paths"] for _x, y in path]
+    assert min(xs) >= 0 and max(xs) <= 263.0
+    assert min(ys) >= 0 and max(ys) <= 303.0
+
+
+def test_cutline_api_follows_a_custom_page_size(client):
+    res = client.post(
+        "/api/cutline",
+        data={"cutfile": "sample.dxf", "page_w": "400", "page_h": "500"},
+        content_type="multipart/form-data",
+    )
+    assert res.get_json()["page_mm"] == [400.0, 500.0]
+
+
+def test_cutline_api_refuses_a_name_outside_the_folder(client):
+    res = client.post(
+        "/api/cutline", data={"cutfile": "../secret.dxf"}, content_type="multipart/form-data"
+    )
+    assert res.status_code == 400
+
+
+def test_generate_honours_scale_and_offset(client, artwork):
+    res = client.post(
+        "/api/generate",
+        data={
+            "cutfile": "sample.dxf",
+            "image": upload(artwork),
+            "image_scale": "0.5",
+            "image_offset_y": "25",
+        },
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["report"]["artwork_mm"][0] < 263.0
+    assert any("uncovered edge prints white" in w for w in body["warnings"])
+
+
+def test_artwork_moved_off_the_page_is_a_clear_400(client, artwork):
+    res = client.post(
+        "/api/generate",
+        data={"cutfile": "sample.dxf", "image": upload(artwork), "image_offset_x": "900"},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 400
+    assert "off the page" in res.get_data(as_text=True)
+
+
+def test_a_bad_number_is_rejected_rather_than_ignored(client, artwork):
+    res = client.post(
+        "/api/generate",
+        data={"cutfile": "sample.dxf", "image": upload(artwork), "image_scale": "huge"},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 400
