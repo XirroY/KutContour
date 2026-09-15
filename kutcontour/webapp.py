@@ -11,6 +11,7 @@ from flask import Flask, abort, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from .core import JobOptions, build_pdf, build_preview
+from .geometry import flatten
 from .dxfread import DxfError, read_dxf
 from .layout import MAX_CUT_HEIGHT_MM, MAX_CUT_WIDTH_MM, PAGE_HEIGHT_MM, PAGE_WIDTH_MM, place_cut
 from .pdfwriter import DEFAULT_STROKE_PT, SPOT_NAME
@@ -92,6 +93,37 @@ def create_app(output_dir: str | None = None) -> Flask:
                 result.append({"name": name, "error": str(exc)})
         return jsonify(result)
 
+    @app.post("/api/cutline")
+    def api_cutline():
+        """The cut line as polylines in mm, so the browser can draw it live."""
+        upload = request.files.get("dxf")
+        if upload and upload.filename:
+            workdir = os.path.join(outputs, "cutline-" + uuid.uuid4().hex)
+            os.makedirs(workdir, exist_ok=True)
+            dxf_path = os.path.join(workdir, "cut.dxf")
+            upload.save(dxf_path)
+        else:
+            dxf_path = resolve_cutfile(request.form.get("cutfile", ""))
+
+        page_w = _float("page_w", PAGE_WIDTH_MM)
+        page_h = _float("page_h", PAGE_HEIGHT_MM)
+        try:
+            res = read_dxf(dxf_path, units=request.form.get("units") or None)
+        except DxfError as exc:
+            abort(400, str(exc))
+        placed = place_cut(res.contours, page_w=page_w, page_h=page_h)
+        return jsonify(
+            {
+                "page_mm": [page_w, page_h],
+                "cut_mm": [round(placed.bbox.width, 2), round(placed.bbox.height, 2)],
+                "paths": [
+                    [[round(x, 2), round(y, 2)] for x, y in flatten(c, samples_per_curve=12)]
+                    for c in placed.contours
+                ],
+                "warnings": res.warnings + placed.warnings,
+            }
+        )
+
     @app.post("/api/generate")
     def api_generate():
         job_id = uuid.uuid4().hex
@@ -122,6 +154,9 @@ def create_app(output_dir: str | None = None) -> Flask:
             units=request.form.get("units") or None,
             image_fit=request.form.get("image_fit", "cover"),
             image_align=request.form.get("image_align", "center"),
+            image_scale=_float("image_scale", 1.0),
+            image_offset_x=_float("image_offset_x", 0.0),
+            image_offset_y=_float("image_offset_y", 0.0),
             to_cmyk=request.form.get("cmyk") == "on",
             fit_cut=request.form.get("fit_cut") == "on",
             overprint=request.form.get("overprint", "on") == "on",
@@ -135,7 +170,7 @@ def create_app(output_dir: str | None = None) -> Flask:
 
         try:
             result = build_pdf(dxf_path, image_path, pdf_path, opts)
-        except DxfError as exc:
+        except (DxfError, ValueError) as exc:
             abort(400, str(exc))
 
         preview_path = os.path.join(workdir, "preview.png")

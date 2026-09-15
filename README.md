@@ -68,15 +68,22 @@ The commands below assume the virtual environment is active. Without it, put
 kutcontour serve          # http://127.0.0.1:5000
 ```
 
-Drag the image in, check the preview, download the PDF. The panel on the right
-reports the finished size, the bleed, the artwork's resolution at final size, and
-anything worth knowing before sending it off.
+Drag the image in, then place it against the cut line: **drag the artwork in the
+preview to move it, scroll over it to zoom**, or type exact millimetres into the
+Left/right and Up/down boxes. Everything outside the cut line is veiled, so you
+can see the shape that actually survives. The readout under the preview tracks
+the zoom, the offset, the size on the page and the resolution — which turns red
+below 150 dpi, before you have committed to anything.
+
+The preview is the real placement: the browser uses the same maths as the PDF
+writer, so what you see is what the cutter gets.
 
 **From the command line** — the scriptable way:
 
 ```bash
 kutcontour build -i artwork.jpg -o banner.pdf
 kutcontour build -i artwork.jpg -o banner.pdf --preview check.png
+kutcontour build -i artwork.jpg -o banner.pdf --scale 0.8 --offset-y -12
 ```
 
 ```
@@ -108,8 +115,10 @@ works as a last check in a script.
 
 | Option | Does |
 |---|---|
-| `--image-fit cover\|contain\|stretch` | `cover` (default) fills the page and crops the overhang; `contain` fits the whole image and leaves white; `stretch` distorts |
-| `--image-align top\|bottom\|left\|right` | which part of the image survives a `cover` crop |
+| `--image-fit cover\|contain\|stretch` | the starting size before `--scale`: `cover` (default) fills the page, `contain` fits the whole image, `stretch` distorts |
+| `--scale 0.8` | zoom the artwork; 1.0 is the plain fit, below 1 shrinks it |
+| `--offset-x 12` / `--offset-y -8` | move the artwork in mm; x is right, y is up |
+| `--image-align top\|bottom\|left\|right` | which part of the image survives a `cover` crop, before any offset |
 | `--fit` | scale an oversized cut line down to the maximum instead of just warning |
 | `--no-center` | keep the DXF's own coordinates rather than centring on the page |
 | `--units mm\|cm\|in` | override the DXF's `$INSUNITS`, for files saved as unitless |
@@ -125,7 +134,8 @@ works as a last check in a script.
 It warns rather than silently fixing, because a quietly resized cut file is worse
 than a loud one:
 
-- artwork below 150 dpi at final size, or heavily cropped to fill the page
+- artwork below 150 dpi at final size, or largely moved outside the page
+- artwork that no longer covers the page, so the uncovered edge would print white
 - a cut line larger than the maximum, or with less than 1.5 mm of bleed around it
 - open contours — a cutter usually wants closed paths
 - unsupported DXF entities that were skipped (text, dimensions, hatches)

@@ -79,8 +79,9 @@ def _options(args) -> JobOptions:
         layers=args.layers,
     )
     for name in (
-        "center", "fit_cut", "image_fit", "image_align", "to_cmyk", "max_dpi",
-        "min_dpi", "stroke_pt", "spot_name", "spot_cmyk", "overprint", "pdf_layers",
+        "center", "fit_cut", "image_fit", "image_align", "image_scale",
+        "image_offset_x", "image_offset_y", "to_cmyk", "max_dpi", "min_dpi",
+        "stroke_pt", "spot_name", "spot_cmyk", "overprint", "pdf_layers",
     ):
         if hasattr(args, name) and getattr(args, name) is not None:
             setattr(opts, name, getattr(args, name))
@@ -120,7 +121,8 @@ def cmd_build(args) -> int:
     print(f"  spot colour {r['spot_name']}, {r['stroke_pt']:g} pt"
           f"{', overprint' if r['overprint'] else ', NO overprint'}")
     if r["artwork_dpi"]:
-        print(f"  artwork     {r['artwork_dpi']:g} dpi at final size")
+        print(f"  artwork     {r['artwork_mm'][0]:g} x {r['artwork_mm'][1]:g} mm on the page, "
+              f"{r['artwork_dpi']:g} dpi")
     for w in result.warnings:
         print(f"  ! {w}", file=sys.stderr)
 
@@ -207,6 +209,12 @@ def build_parser() -> argparse.ArgumentParser:
                    dest="image_fit", help="how artwork fills the page (default: cover)")
     b.add_argument("--image-align", choices=["center", "top", "bottom", "left", "right"],
                    default="center", dest="image_align", help="which part to keep when cropping")
+    b.add_argument("--scale", type=float, default=1.0, dest="image_scale",
+                   help="zoom the artwork; 1.0 is the plain fit (default: 1.0)")
+    b.add_argument("--offset-x", type=float, default=0.0, dest="image_offset_x",
+                   help="move the artwork right by this many mm (negative moves left)")
+    b.add_argument("--offset-y", type=float, default=0.0, dest="image_offset_y",
+                   help="move the artwork up by this many mm (negative moves down)")
     b.add_argument("--fit", action="store_true", dest="fit_cut",
                    help="scale the cut line down if it exceeds the maximum size")
     b.add_argument("--no-center", action="store_false", dest="center",
@@ -262,6 +270,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except DxfError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except BrokenPipeError:

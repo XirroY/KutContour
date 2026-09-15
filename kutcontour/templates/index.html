@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KutContour</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='none' stroke='%23ec008c' stroke-width='3'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #f6f6f7; --panel: #fff; --ink: #1b1b1f; --muted: #6b6b76;
@@ -15,15 +16,15 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-  header { padding:24px 20px 8px; max-width:1100px; margin:0 auto; }
+  header { padding:24px 20px 8px; max-width:1180px; margin:0 auto; }
   h1 { margin:0; font-size:22px; letter-spacing:-.01em; }
   h1 span { color:var(--accent); }
   header p { margin:6px 0 0; color:var(--muted); font-size:14px; }
-  main { max-width:1100px; margin:0 auto; padding:16px 20px 60px; display:grid;
-         grid-template-columns:minmax(0,1fr) minmax(0,420px); gap:20px; align-items:start; }
-  @media (max-width:860px) { main { grid-template-columns:1fr; } }
+  main { max-width:1180px; margin:0 auto; padding:16px 20px 60px; display:grid;
+         grid-template-columns:minmax(0,1fr) minmax(0,440px); gap:20px; align-items:start; }
+  @media (max-width:880px) { main { grid-template-columns:1fr; } }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
-  .drop { border:2px dashed var(--line); border-radius:10px; padding:36px 16px; text-align:center;
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:28px 16px; text-align:center;
           color:var(--muted); cursor:pointer; transition:.15s; }
   .drop.over, .drop:hover { border-color:var(--accent); color:var(--ink); }
   .drop strong { display:block; color:var(--ink); font-size:15px; margin-bottom:4px; }
@@ -32,13 +33,27 @@
     width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
     background:var(--bg); color:var(--ink); font:inherit; font-size:14px; }
   .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
   .check { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:var(--ink); }
   .check input { width:16px; height:16px; accent-color:var(--accent); }
   button { margin-top:18px; width:100%; padding:11px; border:0; border-radius:8px;
            background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
   button:disabled { opacity:.55; cursor:default; }
   button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:500; }
-  #preview { width:100%; border:1px solid var(--line); border-radius:8px; background:#fff; display:none; }
+  button.link { margin:0; width:auto; padding:2px 0; background:none; color:var(--accent);
+                font-weight:500; font-size:13px; text-decoration:underline; }
+  fieldset { border:1px solid var(--line); border-radius:10px; padding:2px 14px 14px; margin:18px 0 0; }
+  legend { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; padding:0 6px; }
+  input[type=range] { width:100%; accent-color:var(--accent); margin:0; }
+  #stage { position:relative; width:100%; border:1px solid var(--line); border-radius:8px;
+           overflow:hidden; background:#fff; touch-action:none; cursor:grab; }
+  #stage.dragging { cursor:grabbing; }
+  #stage.empty { cursor:default; }
+  #canvas { display:block; width:100%; height:auto; }
+  .status { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:10px; font-size:12px; color:var(--muted);
+            font-variant-numeric:tabular-nums; }
+  .status b { color:var(--ink); font-weight:600; }
+  .status .lo { color:var(--warn); }
   .report { margin-top:14px; font-size:13px; border-collapse:collapse; width:100%; }
   .report td { padding:3px 0; vertical-align:top; }
   .report td:first-child { color:var(--muted); width:44%; }
@@ -73,38 +88,43 @@
       </select>
       <div class="hint" id="cutinfo"></div>
 
-      <div class="row">
-        <div>
-          <label for="image_fit">Artwork fit</label>
-          <select id="image_fit" name="image_fit">
-            <option value="cover">Cover (fill, crop overhang)</option>
-            <option value="contain">Contain (fit whole image)</option>
-            <option value="stretch">Stretch to page</option>
-          </select>
+      <fieldset>
+        <legend>Place the artwork</legend>
+        <label for="zoom">Zoom <span id="zoomLabel">100%</span></label>
+        <input type="range" id="zoom" min="10" max="400" step="1" value="100">
+        <div class="row3">
+          <div>
+            <label for="ox">Left / right (mm)</label>
+            <input type="number" id="ox" step="any" value="0">
+          </div>
+          <div>
+            <label for="oy">Up / down (mm)</label>
+            <input type="number" id="oy" step="any" value="0">
+          </div>
+          <div>
+            <label for="image_fit">Start from</label>
+            <select id="image_fit" name="image_fit">
+              <option value="cover">Fill page</option>
+              <option value="contain">Whole image</option>
+              <option value="stretch">Stretch</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label for="image_align">Keep</label>
-          <select id="image_align" name="image_align">
-            <option value="center">Centre</option>
-            <option value="top">Top</option>
-            <option value="bottom">Bottom</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-          </select>
-        </div>
-      </div>
+        <div class="hint">Drag the artwork in the preview to move it, scroll over it to zoom.</div>
+        <button type="button" class="link" id="reset">Reset to the plain fit</button>
+      </fieldset>
 
       <details>
         <summary>Print settings</summary>
         <div class="row">
           <div><label for="page_w">Page width (mm)</label>
-            <input type="number" step="0.1" id="page_w" name="page_w" value="{{ defaults.page_w }}"></div>
+            <input type="number" step="any" id="page_w" name="page_w" value="{{ defaults.page_w }}"></div>
           <div><label for="page_h">Page height (mm)</label>
-            <input type="number" step="0.1" id="page_h" name="page_h" value="{{ defaults.page_h }}"></div>
+            <input type="number" step="any" id="page_h" name="page_h" value="{{ defaults.page_h }}"></div>
         </div>
         <div class="row">
           <div><label for="stroke">Cut line (pt)</label>
-            <input type="number" step="0.05" id="stroke" name="stroke" value="{{ defaults.stroke }}"></div>
+            <input type="number" step="any" id="stroke" name="stroke" value="{{ defaults.stroke }}"></div>
           <div><label for="spot_name">Spot colour name</label>
             <input type="text" id="spot_name" name="spot_name" value="{{ defaults.spot_name }}"></div>
         </div>
@@ -113,73 +133,251 @@
         <label class="check"><input type="checkbox" name="cmyk"> Convert artwork to CMYK (no ICC profile)</label>
       </details>
 
+      <input type="hidden" name="image_scale" id="image_scale" value="1">
+      <input type="hidden" name="image_offset_x" id="image_offset_x" value="0">
+      <input type="hidden" name="image_offset_y" id="image_offset_y" value="0">
+
       <button type="submit" id="go">Make PDF</button>
       <button type="button" class="ghost" id="tpl">Download design template</button>
     </form>
   </section>
 
   <section class="panel">
-    <img id="preview" alt="preview of the finished page">
-    <div id="empty" class="hint">The preview appears here. Magenta is the cut line; it is not printed as ink.</div>
+    <div id="stage" class="empty"><canvas id="canvas"></canvas></div>
+    <div class="status" id="status">
+      <span>Magenta is the cut line; it is not printed as ink.</span>
+    </div>
     <div id="out"></div>
   </section>
 </main>
 
 <script>
-const form = document.getElementById('form');
-const drop = document.getElementById('drop');
-const input = document.getElementById('image');
-const preview = document.getElementById('preview');
-const out = document.getElementById('out');
-const go = document.getElementById('go');
+const $ = id => document.getElementById(id);
+const form = $('form'), drop = $('drop'), fileInput = $('image');
+const stage = $('stage'), canvas = $('canvas'), ctx = canvas.getContext('2d');
+const out = $('out'), go = $('go'), status = $('status');
 
-drop.addEventListener('click', () => input.click());
-['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
+const state = { scale: 1, ox: 0, oy: 0, img: null, cut: null, pageW: 263, pageH: 303 };
+
+/* ---------- placement, mirroring kutcontour/layout.py ---------- */
+
+function baseSize() {
+  const pa = state.pageW / state.pageH;
+  const ia = state.img.naturalWidth / state.img.naturalHeight;
+  const fit = $('image_fit').value;
+  if (fit === 'stretch') return [state.pageW, state.pageH];
+  if (fit === 'contain') return ia > pa ? [state.pageW, state.pageW / ia] : [state.pageH * ia, state.pageH];
+  return ia > pa ? [state.pageH * ia, state.pageH] : [state.pageW, state.pageW / ia];
+}
+
+function rect() {
+  const [bw, bh] = baseSize();
+  const w = bw * state.scale, h = bh * state.scale;
+  return { x: (state.pageW - w) / 2 + state.ox, y: (state.pageH - h) / 2 + state.oy, w, h };
+}
+
+/* ---------- drawing ---------- */
+
+function pxPerMm() { return stage.clientWidth / state.pageW; }
+
+function draw() {
+  const k = pxPerMm(), dpr = window.devicePixelRatio || 1;
+  const w = Math.round(state.pageW * k), h = Math.round(state.pageH * k);
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+
+  if (state.img) {
+    const r = rect();
+    ctx.drawImage(state.img, r.x * k, (state.pageH - r.y - r.h) * k, r.w * k, r.h * k);
+  }
+
+  if (state.cut) {
+    const trace = () => {
+      for (const path of state.cut.paths) {
+        path.forEach(([px, py], i) => {
+          const cx = px * k, cy = (state.pageH - py) * k;
+          i ? ctx.lineTo(cx, cy) : ctx.moveTo(cx, cy);
+        });
+        ctx.closePath();
+      }
+    };
+    // Veil everything the cutter takes away, so the shape that survives stands out.
+    ctx.beginPath();
+    ctx.rect(0, 0, w, h);
+    trace();
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.fill('evenodd');
+
+    ctx.beginPath();
+    trace();
+    ctx.strokeStyle = '#ec008c';
+    ctx.lineWidth = 1.25;
+    ctx.stroke();
+  }
+  updateStatus();
+}
+
+function updateStatus() {
+  if (!state.img) {
+    status.innerHTML = '<span>Magenta is the cut line; it is not printed as ink.</span>';
+    return;
+  }
+  const r = rect();
+  // What lands on the page, matching the figure the server reports.
+  const onPage = {
+    w: Math.min(r.x + r.w, state.pageW) - Math.max(r.x, 0),
+    h: Math.min(r.y + r.h, state.pageH) - Math.max(r.y, 0),
+  };
+  const dpi = state.img.naturalWidth / (r.w / 25.4);
+  const low = dpi < 150 ? ' class="lo"' : '';
+  status.innerHTML =
+    `<span>Zoom <b>${Math.round(state.scale * 100)}%</b></span>` +
+    `<span>Moved <b>${state.ox.toFixed(1)} / ${state.oy.toFixed(1)} mm</b></span>` +
+    `<span>On page <b>${onPage.w.toFixed(0)} × ${onPage.h.toFixed(0)} mm</b></span>` +
+    `<span${low}>Resolution <b>${Math.round(dpi)} dpi</b></span>`;
+}
+
+/* ---------- interaction ---------- */
+
+function setScale(next, aboutX, aboutY) {
+  next = Math.min(8, Math.max(0.1, next));
+  const r = rect(), f = next / state.scale;
+  const cx = aboutX ?? state.pageW / 2, cy = aboutY ?? state.pageH / 2;
+  const nx = cx - (cx - r.x) * f, ny = cy - (cy - r.y) * f;
+  state.ox = nx - (state.pageW - r.w * f) / 2;
+  state.oy = ny - (state.pageH - r.h * f) / 2;
+  state.scale = next;
+  syncControls();
+  draw();
+}
+
+function syncControls() {
+  $('zoom').value = Math.round(state.scale * 100);
+  $('zoomLabel').textContent = Math.round(state.scale * 100) + '%';
+  $('ox').value = state.ox.toFixed(1);
+  $('oy').value = state.oy.toFixed(1);
+  $('image_scale').value = state.scale;
+  $('image_offset_x').value = state.ox;
+  $('image_offset_y').value = state.oy;
+}
+
+let drag = null;
+stage.addEventListener('pointerdown', ev => {
+  if (!state.img) return;
+  drag = { x: ev.clientX, y: ev.clientY, ox: state.ox, oy: state.oy };
+  stage.setPointerCapture(ev.pointerId);
+  stage.classList.add('dragging');
+});
+stage.addEventListener('pointermove', ev => {
+  if (!drag) return;
+  const k = pxPerMm();
+  state.ox = drag.ox + (ev.clientX - drag.x) / k;
+  state.oy = drag.oy - (ev.clientY - drag.y) / k;
+  syncControls();
+  draw();
+});
+['pointerup', 'pointercancel'].forEach(e => stage.addEventListener(e, ev => {
+  drag = null;
+  stage.classList.remove('dragging');
+  // Without this the stage keeps the pointer and swallows the next click.
+  if (stage.hasPointerCapture(ev.pointerId)) stage.releasePointerCapture(ev.pointerId);
+}));
+
+stage.addEventListener('wheel', ev => {
+  if (!state.img) return;
+  ev.preventDefault();
+  const box = stage.getBoundingClientRect(), k = pxPerMm();
+  setScale(state.scale * Math.exp(-ev.deltaY * 0.0015),
+           (ev.clientX - box.left) / k, state.pageH - (ev.clientY - box.top) / k);
+}, { passive: false });
+
+$('zoom').addEventListener('input', ev => setScale(Number(ev.target.value) / 100));
+$('ox').addEventListener('input', ev => { state.ox = Number(ev.target.value) || 0; syncControls(); draw(); });
+$('oy').addEventListener('input', ev => { state.oy = Number(ev.target.value) || 0; syncControls(); draw(); });
+$('image_fit').addEventListener('change', draw);
+$('reset').addEventListener('click', () => {
+  state.scale = 1; state.ox = 0; state.oy = 0; syncControls(); draw();
+});
+window.addEventListener('resize', draw);
+
+/* ---------- inputs ---------- */
+
+drop.addEventListener('click', () => fileInput.click());
+['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => {
   ev.preventDefault(); drop.classList.add('over');
 }));
-['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
+['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => {
   ev.preventDefault(); drop.classList.remove('over');
 }));
 drop.addEventListener('drop', ev => {
-  if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; showFile(); }
+  if (ev.dataTransfer.files.length) { fileInput.files = ev.dataTransfer.files; showFile(); }
 });
-input.addEventListener('change', showFile);
+fileInput.addEventListener('change', showFile);
 
 function showFile() {
-  const f = input.files[0];
-  document.getElementById('dropTitle').textContent = f ? f.name : 'Drop artwork here';
-  document.getElementById('dropHint').textContent = f
+  const f = fileInput.files[0];
+  $('dropTitle').textContent = f ? f.name : 'Drop artwork here';
+  $('dropHint').textContent = f
     ? (f.size / 1048576).toFixed(1) + ' MB — click to replace'
     : 'or click to choose a JPG, PNG or TIFF';
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    state.img = img;
+    stage.classList.remove('empty');
+    state.scale = 1; state.ox = 0; state.oy = 0;
+    syncControls();
+    draw();
+  };
+  img.onerror = () => {
+    state.img = null;
+    out.innerHTML = '<div class="warn">That file could not be shown in the browser. ' +
+      'It may still convert — TIFFs often do not preview.</div>';
+  };
+  img.src = URL.createObjectURL(f);
 }
 
-document.getElementById('tpl').addEventListener('click', () => {
-  const f = document.getElementById('cutfile').value;
-  if (f) window.location = '/template/' + encodeURIComponent(f);
-});
+['page_w', 'page_h'].forEach(id => $(id).addEventListener('change', loadCutline));
+$('cutfile').addEventListener('change', loadCutline);
 
-fetch('/api/cutfiles').then(r => r.json()).then(list => {
-  const info = document.getElementById('cutinfo');
-  const sel = document.getElementById('cutfile');
-  const render = () => {
-    const m = list.find(c => c.name === sel.value);
-    info.textContent = !m ? '' : m.error
-      ? 'error: ' + m.error
-      : `${m.paths} path${m.paths === 1 ? '' : 's'}, ${m.width_mm} × ${m.height_mm} mm`;
-  };
-  sel.addEventListener('change', render); render();
-});
+async function loadCutline() {
+  state.pageW = Number($('page_w').value) || 263;
+  state.pageH = Number($('page_h').value) || 303;
+  const body = new FormData();
+  body.append('cutfile', $('cutfile').value);
+  body.append('page_w', state.pageW);
+  body.append('page_h', state.pageH);
+  try {
+    const res = await fetch('/api/cutline', { method: 'POST', body });
+    if (!res.ok) throw new Error(await plainError(res));
+    state.cut = await res.json();
+    $('cutinfo').textContent =
+      `${state.cut.paths.length} path${state.cut.paths.length === 1 ? '' : 's'}, ` +
+      `${state.cut.cut_mm[0]} × ${state.cut.cut_mm[1]} mm`;
+  } catch (err) {
+    state.cut = null;
+    $('cutinfo').textContent = err.message;
+  }
+  draw();
+}
+
+/* ---------- generate ---------- */
+
+async function plainError(res) {
+  return (await res.text()).replace(/<[^>]+>/g, '').trim() || res.statusText;
+}
 
 form.addEventListener('submit', async ev => {
   ev.preventDefault();
   go.disabled = true; go.textContent = 'Working…'; out.innerHTML = '';
   try {
     const res = await fetch('/api/generate', { method: 'POST', body: new FormData(form) });
-    if (!res.ok) throw new Error((await res.text()).replace(/<[^>]+>/g, '').trim() || res.statusText);
+    if (!res.ok) throw new Error(await plainError(res));
     const data = await res.json();
-    preview.src = data.preview_url + '?t=' + Date.now();
-    preview.style.display = 'block';
-    document.getElementById('empty').style.display = 'none';
     const r = data.report;
     out.innerHTML =
       `<a class="dl" href="${data.pdf_url}">Download PDF</a>` +
@@ -188,7 +386,7 @@ form.addEventListener('submit', async ev => {
       row('Cut line', `${r.cut_size_mm[0]} × ${r.cut_size_mm[1]} mm, ${r.contours} path(s)`) +
       row('Bleed', `${r.bleed_mm[0]} / ${r.bleed_mm[1]} mm`) +
       row('Spot colour', `${r.spot_name}, ${r.stroke_pt} pt${r.overprint ? ', overprint' : ''}`) +
-      (r.artwork_dpi ? row('Artwork', `${r.artwork_dpi} dpi at final size`) : '') +
+      (r.artwork_dpi ? row('Artwork', `${r.artwork_mm[0]} × ${r.artwork_mm[1]} mm, ${r.artwork_dpi} dpi`) : '') +
       '</table>' +
       (data.warnings.length
         ? '<div class="warn">' + data.warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('') + '</div>'
@@ -200,8 +398,17 @@ form.addEventListener('submit', async ev => {
   }
 });
 
+$('tpl').addEventListener('click', () => {
+  const f = $('cutfile').value;
+  if (f) window.location = '/template/' + encodeURIComponent(f);
+});
+
 const row = (k, v) => `<tr><td>${k}</td><td>${escapeHtml(String(v))}</td></tr>`;
-const escapeHtml = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+loadCutline();
 </script>
 </body>
 </html>

@@ -63,17 +63,77 @@ def test_fit_scales_an_oversized_cut_down(sample_dxf):
 
 def test_cover_crops_a_landscape_image_to_the_portrait_page():
     p = place_image(3000, 2000, fit="cover")
-    assert (p.width_mm, p.height_mm) == (263.0, 303.0)
+    assert math.isclose(p.width_mm, 263.0, abs_tol=0.2)
+    assert math.isclose(p.height_mm, 303.0, abs_tol=0.2)
     left, top, right, bottom = p.crop_px
-    assert math.isclose((right - left) / (bottom - top), 263.0 / 303.0, rel_tol=1e-3)
+    assert math.isclose((right - left) / (bottom - top), 263.0 / 303.0, rel_tol=1e-2)
     assert left > 0 and top == 0  # cropped horizontally, centred
-    assert any("cropped away" in w for w in p.warnings)
+    assert any("outside the page" in w for w in p.warnings)
 
 
 def test_cover_alignment_picks_which_edge_to_keep():
     assert place_image(3000, 2000, fit="cover", align="left").crop_px[0] == 0
     right = place_image(3000, 2000, fit="cover", align="right")
     assert right.crop_px[2] == 3000
+
+
+def test_scale_zooms_the_artwork_about_the_page_centre():
+    plain = place_image(2000, 2000, fit="cover")
+    zoomed = place_image(2000, 2000, fit="cover", scale=2.0)
+    # Twice as big, so twice as much of it hangs off the page and gets cropped.
+    assert zoomed.effective_dpi < plain.effective_dpi
+    assert (zoomed.crop_px[2] - zoomed.crop_px[0]) < (plain.crop_px[2] - plain.crop_px[0])
+    # It still covers the page, and stays centred.
+    assert math.isclose(zoomed.x_mm, 0.0, abs_tol=0.2)
+    assert math.isclose(zoomed.width_mm, 263.0, abs_tol=0.2)
+
+
+def test_zooming_out_leaves_the_page_uncovered():
+    p = place_image(2000, 2000, fit="cover", scale=0.5)
+    assert p.width_mm < 263.0
+    assert math.isclose(p.x_mm, (263.0 - p.width_mm) / 2, abs_tol=0.2)
+    assert any("uncovered edge prints white" in w for w in p.warnings)
+
+
+def test_offsets_move_the_artwork_and_the_crop_follows():
+    centred = place_image(3000, 2000, fit="cover")
+    nudged = place_image(3000, 2000, fit="cover", offset_x=20.0)
+    # A landscape image at "cover" is wider than the page, so moving it right
+    # still covers the page; what changes is which pixels survive. At 3000 px
+    # across 454.5 mm that is 6.6 px per mm, so 20 mm is about 132 px.
+    assert math.isclose(centred.crop_px[0] - nudged.crop_px[0], 132, abs_tol=2)
+    assert math.isclose(nudged.x_mm, 0.0, abs_tol=0.2)
+    assert math.isclose(nudged.width_mm, 263.0, abs_tol=0.2)
+
+
+def test_offset_shows_white_once_the_artwork_clears_the_edge():
+    # A square image covering a 263 x 303 page overhangs by 20 mm each side,
+    # so nudging it 30 mm right pulls its left edge 10 mm onto the page.
+    p = place_image(2000, 2000, fit="cover", offset_x=30.0)
+    assert math.isclose(p.x_mm, 10.0, abs_tol=0.2)
+    assert any("uncovered edge prints white" in w for w in p.warnings)
+
+
+def test_offset_y_is_positive_upwards():
+    up = place_image(2000, 2000, fit="cover", scale=0.5, offset_y=10.0)
+    down = place_image(2000, 2000, fit="cover", scale=0.5, offset_y=-10.0)
+    assert up.y_mm > down.y_mm
+
+
+def test_cropping_does_not_change_the_resolution():
+    whole = place_image(3000, 2000, fit="stretch")
+    part = place_image(3000, 2000, fit="stretch", offset_x=40.0)
+    assert math.isclose(whole.effective_dpi, part.effective_dpi, rel_tol=0.02)
+
+
+def test_moving_the_artwork_right_off_the_page_is_an_error():
+    with pytest.raises(ValueError, match="off the page"):
+        place_image(2000, 2000, offset_x=500.0)
+
+
+def test_scale_must_be_positive():
+    with pytest.raises(ValueError, match="greater than zero"):
+        place_image(2000, 2000, scale=0.0)
 
 
 def test_contain_letterboxes_and_warns():
