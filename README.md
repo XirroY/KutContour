@@ -21,19 +21,44 @@ directly instead.
 
 ## Install
 
+**Windows (PowerShell)** — one command per line; `&&` is not a separator in
+Windows PowerShell 5.1:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\pip install -e .
+.venv\Scripts\Activate.ps1
+```
+
+If that last line is refused with "running scripts is disabled on this system",
+either allow it once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or skip activating and
+spell out `.venv\Scripts\kutcontour` in place of `kutcontour` below.
+
+**macOS / Linux:**
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e .
+source .venv/bin/activate
 ```
 
 Then put your DXF in `cutfiles/`. With one file in there, nothing needs naming:
 
+```powershell
+Copy-Item C:\path\to\your-cut.dxf cutfiles\   # Windows
+```
+
 ```bash
-cp /path/to/your-cut.dxf cutfiles/
+cp /path/to/your-cut.dxf cutfiles/              # macOS / Linux
 ```
 
 No cut file yet? `python examples/make_sample_dxf.py cutfiles/sample.dxf` writes a
 260 × 300 mm rounded rectangle with a hanging hole to practise on.
+
+The commands below assume the virtual environment is active. Without it, put
+`.venv\Scripts\` (Windows) or `.venv/bin/` (macOS / Linux) in front of
+`kutcontour` and `python`.
 
 ## Use it
 
@@ -126,8 +151,8 @@ otherwise.
 ## Tests
 
 ```bash
-.venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest
+pip install -e ".[dev]"
+python -m pytest
 ```
 
 The suite builds real PDFs and reads them back with pikepdf to confirm the
