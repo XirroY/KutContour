@@ -35,6 +35,9 @@ class JobOptions:
     fit_cut: bool = False
     image_fit: str = "cover"
     image_align: str = "center"
+    image_scale: float = 1.0
+    image_offset_x: float = 0.0
+    image_offset_y: float = 0.0
     to_cmyk: bool = False
     max_dpi: float = 600.0
     min_dpi: float = 150.0
@@ -55,6 +58,22 @@ class JobResult:
     prepared_image: PreparedImage | None
     warnings: list[str] = field(default_factory=list)
     report: dict = field(default_factory=dict)
+
+
+def _footprint(
+    placement: ImagePlacement | None, page_w: float, page_h: float
+) -> tuple[float, float] | None:
+    """How much of the page the artwork covers.
+
+    The placed rectangle can overhang the page by up to one source pixel, from
+    rounding the crop outwards so no white sliver is left at the trim edge, so
+    report the part that actually lands on the page.
+    """
+    if placement is None:
+        return None
+    width = min(placement.x_mm + placement.width_mm, page_w) - max(placement.x_mm, 0.0)
+    height = min(placement.y_mm + placement.height_mm, page_h) - max(placement.y_mm, 0.0)
+    return round(width, 1), round(height, 1)
 
 
 def build_pdf(dxf_path: str, image_path: str | None, out_path: str, opts: JobOptions) -> JobResult:
@@ -87,6 +106,9 @@ def build_pdf(dxf_path: str, image_path: str | None, out_path: str, opts: JobOpt
             page_h=opts.page_h,
             fit=opts.image_fit,
             align=opts.image_align,
+            scale=opts.image_scale,
+            offset_x=opts.image_offset_x,
+            offset_y=opts.image_offset_y,
             min_dpi=opts.min_dpi,
         )
         warnings.extend(placement.warnings)
@@ -138,6 +160,7 @@ def build_pdf(dxf_path: str, image_path: str | None, out_path: str, opts: JobOpt
         "stroke_pt": opts.stroke_pt,
         "overprint": opts.overprint,
         "artwork_dpi": round(placement.effective_dpi, 1) if placement else None,
+        "artwork_mm": _footprint(placement, opts.page_w, opts.page_h),
     }
 
     return JobResult(out_path, cut.contours, placement, prepared, warnings, report)
